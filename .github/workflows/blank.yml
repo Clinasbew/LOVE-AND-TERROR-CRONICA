@@ -1,0 +1,56 @@
+const fetch = require('node-fetch'); // For sending emails via API
+
+exports.handler = async (event) => {
+    // Parse the form data from the request
+    const body = JSON.parse(event.body);
+    const confession = body.payload.data.confession;
+    const botField = body.payload.data['bot-field'];
+
+    // Check honeypot field; if filled, it’s likely spam
+    if (botField) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ message: 'Spam detected' }),
+        };
+    }
+
+    // Email service configuration (using SendGrid as an example)
+    const apiKey = process.env.SENDGRID_API_KEY; // Stored in Netlify environment variables
+    const toEmail = 'your-email@example.com'; // Replace with your email
+
+    const emailData = {
+        personalizations: [{ to: [{ email: toEmail }] }],
+        from: { email: 'no-reply@your-site-name.netlify.app' },
+        subject: 'New Anonymous Confession',
+        content: [{ type: 'text/plain', value: confession }],
+    };
+
+    try {
+        await fetch('https://api.sendgrid.com/v3/mail/send', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(emailData),
+        });
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: 'Confession submitted successfully' }),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: 'Error submitting confession' }),
+        };
+    }
+};
+{
+    "name": "confession-site",
+    "version": "1.0.0",
+    "dependencies": {
+        "node-fetch": "^2.6.1"
+    }
+}
+<form name="confession-form" method="POST" action="/.netlify/functions/submit-confession" data-netlify-honeypot="bot-field">
